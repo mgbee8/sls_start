@@ -17,11 +17,11 @@ provider:
   name: aws
   runtime: nodejs4.3
   stage: dev
-  region: us-east-1
+  region: us-west-2
 
 
 # you can overwrite defaults here
-#defaults:
+#defaults:fx
 #  stage: dev
 #  region: us-east-1
 
@@ -34,10 +34,10 @@ provider:
 #  artifact: my-service-code.zip
 
 functions:
-  :newImage
+  newImage:
     handler: handler.newImage
     events:
-      -s3:
+      - s3:
         bucket: dii-images
 
 

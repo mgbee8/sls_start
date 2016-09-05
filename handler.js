@@ -2,6 +2,7 @@ var async = require('async');
 var AWS = require('aws-sdk');
 var gm = require('gm').subClass({imageMagick: true}); // Enable ImageMagick integration.
 var util = require('util');
+var http = require('http');
 
 // constants
 var MAX_WIDTH = 100;
@@ -17,8 +18,74 @@ module.exports.newImage = (event, context, cb) => {
 
 };
 
-function process(ticketId, fileName){
-    sendToFieldCheck(ticketId);
+function post(options, data) {
+    let req =  http.request(options, function(res) {
+        console.log('Status: ' + res.statusCode);
+        console.log('Headers: ' + JSON.stringify(res.headers));
+        res.setEncoding('utf8');
+        res.on('data', function (body) {
+            console.log('Body: ' + body);
+        });
+    });
+    req.write(data);
+}
+
+function sendToIRS(ticketId, fileName) {
+    let options = {
+        hostname: 'www.irs-new.certusview.com',
+        port: 80,
+        path: '/add/image',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    };
+    let data = {"subsidiary": "UTQ", "ticket_id": ticketId, "filename": fileName};
+}
+
+function sendToMRS(ticketId, fileName) {
+    let options = {
+        hostname: 'www.mrs-new.certusview.com',
+        port: 80,
+        path: '/add/manifest',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    };
+    let data = {"subsidiary": "UTQ", "ticket_id": ticketId, "filename": fileName};
+
+}
+
+function sendToPAR(ticketId, fileName) {
+    let options = {
+        hostname: 'www.par-new.certusview.com',
+        port: 80,
+        path: '/notify/newManifestToBeScored',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    };
+    let data = {"ticket_id": ticketId, "filename": fileName};
+}
+
+function sendToCVOR(ticketId, fileName) {
+    let options = {
+        hostname: 'www.cvor-new.certusview.com',
+        port: 80,
+        path: '/notify/newManifestToBeCalculated',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    };
+    let data = { "ticket_id": ticketId, "filename": fileName};
+}
+
+function process(ticketId, fileName) {
+    sendToIRS(ticketId, fileName);
+    sendToMRS(ticketId, fileName);
     sendToPAR(ticketId);
     sendToCVOR(ticketId);
 }
@@ -31,7 +98,7 @@ function processEvent(event, cb) {
     process(ticketId, fileName);
 }
 
-function getItem(srcKey, spot){
+function getItem(srcKey, spot) {
     let items = srcKey.split('/');
     return items[items.length - spot];
 
@@ -120,4 +187,4 @@ function makeThumbnail(event, cb) {
 }
 
 
-// You can add more handlers here, and reference them in serverless.yml
+

@@ -1,0 +1,10 @@
+{
+  "name": "newImage",
+  "version": "0.0.1",
+  "dependencies": {
+    "async": "^2.0.1",
+    "aws-sdk": "^2.5.5",
+    "gm": "^1.23.0",
+    "util": "^0.10.3"
+  }
+}

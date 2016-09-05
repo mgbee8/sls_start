@@ -39,3 +39,8 @@ jspm_packages
 .node_repl_history
 
 .idea/*
+
+.idea/modules.xml
+.idea/sls_start.iml
+.idea/workspace.xml
+
