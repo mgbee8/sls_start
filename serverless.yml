@@ -34,8 +34,14 @@ provider:
 #  artifact: my-service-code.zip
 
 functions:
-  newImage:
-    handler: handler.newImage
+#  newImage:
+#    handler: handler.newImage
+#    events:
+#      - s3:
+#        bucket: dii-images
+
+  imageAdded:
+    handler: handler.imageAdded
     events:
       - s3:
         bucket: dii-images

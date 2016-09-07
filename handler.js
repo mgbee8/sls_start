@@ -1,3 +1,5 @@
+'use strict';
+
 var async = require('async');
 var AWS = require('aws-sdk');
 var gm = require('gm').subClass({imageMagick: true}); // Enable ImageMagick integration.
@@ -10,102 +12,90 @@ var MAX_HEIGHT = 100;
 
 // get reference to S3 client
 var s3 = new AWS.S3();
+var docClient = new AWS.DynamoDB.DocumentClient();
 
-// Your first function handler
-module.exports.newImage = (event, context, cb) => {
-    processEvent(event, cb);
+module.exports.imageAdded = (event, context, cb) => {
+    sendToDynamoDb(event, cb);
     makeThumbnail(event, cb);
-
 };
 
-function post(options, data) {
-    let req =  http.request(options, function(res) {
-        console.log('Status: ' + res.statusCode);
-        console.log('Headers: ' + JSON.stringify(res.headers));
-        res.setEncoding('utf8');
-        res.on('data', function (body) {
-            console.log('Body: ' + body);
-        });
+function sendToManifests(event, cb) {
+    let srcBucket = event.Records[0].s3.bucket.name,
+        srcKey = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, " ")),
+        fileName = getItem(srcKey, 1),
+        subsidiary = getItem(srcKey, 0),
+        ticketId = getItem(srcKey, 2);
+
+    var params = {
+        TableName: 'manifests',
+        Item: {
+            file_name: fileName,
+            subsidiary: subsidiary,
+            ticket_id: ticketId,
+            bucket: srcBucket,
+            key: srcKey
+        }
+    };
+
+    docClient.put(params, function (err, data) {
+        if (err) console.log(err);
+        else console.log(data);
+        cb('mainfest inserted');
     });
-    req.write(data);
 }
 
-function sendToIRS(ticketId, fileName) {
-    let options = {
-        hostname: 'www.irs-new.certusview.com',
-        port: 80,
-        path: '/add/image',
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
+function sendToImages(event, cb) {
+    let srcBucket = event.Records[0].s3.bucket.name,
+        srcKey = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, " ")),
+        fileName = getItem(srcKey, 1),
+        subsidiary = getItem(srcKey, 0),
+        ticketId = getItem(srcKey, 2);
+
+    if (srcKey.toLowerCase().indexOf("resized") > 0)
+
+        if (srcKey.toLowerCase().indexOf("resized") != -1) {
+            var params = {
+                TableName: 'images',
+                Item: {
+                    file_name: fileName,
+                    subsidiary: subsidiary,
+                    ticket_id: ticketId,
+                    bucket: srcBucket,
+                    key: srcKey
+                }
+            };
+
+            docClient.put(params, function (err, data) {
+                if (err) console.log(err);
+                else console.log(data);
+                cb('image inserted');
+            });
         }
-    };
-    let data = {"subsidiary": "UTQ", "ticket_id": ticketId, "filename": fileName};
 }
 
-function sendToMRS(ticketId, fileName) {
-    let options = {
-        hostname: 'www.mrs-new.certusview.com',
-        port: 80,
-        path: '/add/manifest',
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    };
-    let data = {"subsidiary": "UTQ", "ticket_id": ticketId, "filename": fileName};
 
-}
+function sendToDynamoDb(event, cb) {
 
-function sendToPAR(ticketId, fileName) {
-    let options = {
-        hostname: 'www.par-new.certusview.com',
-        port: 80,
-        path: '/notify/newManifestToBeScored',
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    };
-    let data = {"ticket_id": ticketId, "filename": fileName};
-}
+    let srcKey = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, " ")),
+        fileName = getItem(srcKey, 1),
+        imageType = getFileType(fileName)[1];
 
-function sendToCVOR(ticketId, fileName) {
-    let options = {
-        hostname: 'www.cvor-new.certusview.com',
-        port: 80,
-        path: '/notify/newManifestToBeCalculated',
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    };
-    let data = { "ticket_id": ticketId, "filename": fileName};
-}
-
-function process(ticketId, fileName) {
-    sendToIRS(ticketId, fileName);
-    sendToMRS(ticketId, fileName);
-    sendToPAR(ticketId);
-    sendToCVOR(ticketId);
-}
-
-function processEvent(event, cb) {
-    let item = event.Records[0];
-    let srcKey = decodeURIComponent(item.s3.object.key);
-    let ticketId = getItem(srcKey, 2);
-    let fileName = getItems(srcKey, 1);
-    process(ticketId, fileName);
+    if (imageType.toLowerCase() == '@cv') {
+        sendToManifests(event, cb);
+    } else {
+        sendToImages(event, cb);
+    }
 }
 
 function getItem(srcKey, spot) {
     let items = srcKey.split('/');
-    return items[items.length - spot];
+    return spot == 0 ? items[0] : items[items.length - spot];
 
 }
 
 function getFileType(fileName) {
     let typeMatch = fileName.match(/\.([^.]*)$/);
+    console.log(typeMatch);
     if (!typeMatch) {
         cb("Could not determine the image type.");
         return;
@@ -116,12 +106,14 @@ function getFileType(fileName) {
 
 function makeThumbnail(event, cb) {
     let srcBucket = event.Records[0].s3.bucket.name,
-        srcKey = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, " "));
+        srcKey = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, " ")),
+        fileName = getItem(srcKey, 1),
+        imageType = getFileType(fileName)[1],
+        dstKey = `resized${fileName}`;
 
-    let fileName = getItem(srcKey, 1), imageType = getFileType(fileName), dstKey = "resized${fileName}";
 
     if (imageType != "jpg" && imageType != "png") {
-        cb('Unsupported image type: ${imageType}');
+        cb(`Unsupported image type: ${imageType}`);
         return;
     }
 
@@ -170,13 +162,13 @@ function makeThumbnail(event, cb) {
             if (err) {
                 console.error(
                     'Unable to resize ' + srcBucket + '/' + srcKey +
-                    ' and upload to ' + dstBucket + '/' + dstKey +
+                    ' and upload to ' + srcBucket + '/' + dstKey +
                     ' due to an error: ' + err
                 );
             } else {
                 console.log(
                     'Successfully resized ' + srcBucket + '/' + srcKey +
-                    ' and uploaded to ' + dstBucket + '/' + dstKey
+                    ' and uploaded to ' + srcBucket + '/' + dstKey
                 );
             }
 

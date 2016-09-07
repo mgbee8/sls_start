@@ -1,0 +1,55 @@
+---
+swagger: '2.0'
+info:
+  version: 1.0.0
+  title: Fake CertusView Api
+  description: |
+    #### Creates a set of urls for faking new certusview api
+schemes:
+  - http
+host: new,certusview.com
+basePath: /api
+paths:
+  /v2/getTicketDetails:
+    post:
+      responses:
+        200:
+          description: Gets ticket detaisl from QM
+      parameters:
+        - name: data
+          in: formData
+          description: name
+          type: string
+  /v1/postRiskScore:
+    parameters:
+      - name: ticket_id
+        in: formData
+        description: ticketId
+        type: string
+        required: true
+    post:
+      responses:
+        200:
+          description: get a post risk score from par based on ticket
+  /v1/calculate:
+    parameters:
+      - name: ticket_id
+        in: formData
+        description: ticketId
+        type: string
+        required: true
+    post:
+      responses:
+        200:
+          description: calculates values from sketch
+  /v1/addToMetrics:
+    parameters:
+      - name: ticket_id
+        in: formData
+        description: ticketId
+        type: string
+        required: true
+    post:
+      responses:
+        200:
+          description: calculates metrics from sketch
