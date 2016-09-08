@@ -19,6 +19,17 @@ module.exports.imageAdded = (event, context, cb) => {
     makeThumbnail(event, cb);
 };
 
+module.exports.fakeResponseFieldCheck = (event, context, cb) => {
+
+    let response = {
+        "ticket_id": event.body.ticket_id,
+        "subsidiary": event.body.subsidiary,
+        "ticket_description": "some random text"
+    };
+    console.log(response);
+    cb(null, response);
+};
+
 function sendToManifests(event, cb) {
     let srcBucket = event.Records[0].s3.bucket.name,
         srcKey = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, " ")),
