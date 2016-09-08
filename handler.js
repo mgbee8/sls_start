@@ -28,7 +28,8 @@ module.exports.fakeResponseFieldCheck = (event, context, cb) => {
     let response = {
         "ticket_id": event.body.ticket_id,
         "subsidiary": event.body.subsidiary,
-        "ticket_description": "some random text"
+        "ticket_description": "some random text",
+        "application": "fieldcheck"
     };
     console.log(response);
     cb(null, response);
