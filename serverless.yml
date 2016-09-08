@@ -47,6 +47,8 @@ functions:
         - http:
             path: v2/getTicketDetails
             method: post
+  fakeAuthorize:
+      handler: handler.fakeAuthorize
 
 
 #   you can add any of the following events

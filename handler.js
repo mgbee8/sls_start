@@ -19,6 +19,10 @@ module.exports.imageAdded = (event, context, cb) => {
     makeThumbnail(event, cb);
 };
 
+module.exports.fakeAuthorize = (event, context, cb) => {
+    context.succeed(generatePolicy('user', 'Allow', event.methodArn));
+};
+
 module.exports.fakeResponseFieldCheck = (event, context, cb) => {
 
     let response = {
@@ -29,6 +33,23 @@ module.exports.fakeResponseFieldCheck = (event, context, cb) => {
     console.log(response);
     cb(null, response);
 };
+
+function generatePolicy(principalId, effect, resource) {
+    var authResponse = {};
+    authResponse.principalId = principalId;
+    if (effect && resource) {
+        var policyDocument = {};
+        policyDocument.Version = '2012-10-17'; // default version
+        policyDocument.Statement = [];
+        var statementOne = {};
+        statementOne.Action = 'execute-api:Invoke'; // default action
+        statementOne.Effect = effect;
+        statementOne.Resource = resource;
+        policyDocument.Statement[0] = statementOne;
+        authResponse.policyDocument = policyDocument;
+    }
+    return authResponse;
+}
 
 function sendToManifests(event, cb) {
     let srcBucket = event.Records[0].s3.bucket.name,
@@ -62,26 +83,25 @@ function sendToImages(event, cb) {
         subsidiary = getItem(srcKey, 0),
         ticketId = getItem(srcKey, 2);
 
-    if (srcKey.toLowerCase().indexOf("resized") > 0)
+    if (srcKey.toLowerCase().indexOf("resized") != -1) {
+        getExifData(event, cb);
+        var params = {
+            TableName: 'images',
+            Item: {
+                file_name: fileName,
+                subsidiary: subsidiary,
+                ticket_id: ticketId,
+                bucket: srcBucket,
+                key: srcKey
+            }
+        };
 
-        if (srcKey.toLowerCase().indexOf("resized") != -1) {
-            var params = {
-                TableName: 'images',
-                Item: {
-                    file_name: fileName,
-                    subsidiary: subsidiary,
-                    ticket_id: ticketId,
-                    bucket: srcBucket,
-                    key: srcKey
-                }
-            };
-
-            docClient.put(params, function (err, data) {
-                if (err) console.log(err);
-                else console.log(data);
-                cb('image inserted');
-            });
-        }
+        docClient.put(params, function (err, data) {
+            if (err) console.log(err);
+            else console.log(data);
+            cb('image inserted');
+        });
+    }
 }
 
 
@@ -114,6 +134,9 @@ function getFileType(fileName) {
     return typeMatch;
 }
 
+function getExifData(event, cb) {
+
+}
 
 function makeThumbnail(event, cb) {
     let srcBucket = event.Records[0].s3.bucket.name,
